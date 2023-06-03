@@ -8,28 +8,34 @@ import burp.api.montoya.proxy.http.ProxyResponseToBeSentAction
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonObject
+import burp.api.montoya.ui.editor.EditorOptions
+import burp.api.montoya.ui.editor.HttpRequestEditor
+import burp.api.montoya.ui.editor.HttpResponseEditor
 
-class ApiDetectorHttpResponseHandler(private val api: MontoyaApi) : ProxyResponseHandler {
+
+class ApiDetectorHttpResponseHandler(private val api: MontoyaApi, private val tab: ApiDetectorTab) : ProxyResponseHandler {
     override fun handleResponseReceived(interceptedResponse: InterceptedResponse?): ProxyResponseReceivedAction {
         if (interceptedResponse == null) {
-            api.logging().logToError("Null response received.  Dropping message.")
+            api.logging().logToError("Null response received.  Dropping response.")
             return ProxyResponseReceivedAction.drop()
         }
 
         if (this.api.scope().isInScope(interceptedResponse.initiatingRequest().url())) {
-            api.logging().logToOutput("+ In Scope")
             val interceptedBody = interceptedResponse.bodyToString()
-            val interceptedHeaders = interceptedResponse.headers()
+            val initiatingRequest = interceptedResponse.initiatingRequest()
 
             try {
+                // Check if response body is valid json
                 val json = Json.parseToJsonElement(interceptedBody)
-                api.logging().logToOutput("JSON Detected:")
-                api.logging().logToOutput("$interceptedHeaders")
-                api.logging().logToOutput("$json")
 
-            } catch (jsonException: SerializationException) {
-                api.logging().logToOutput("This cannot be parsed as JSON")
-            }
+                // Add a row to the table
+                val method = initiatingRequest.method()
+                val url = initiatingRequest.url().toString()
+                val status = interceptedResponse.statusCode().toString()
+                val length = interceptedBody.length.toString()
+                tab.addInterceptedResponse(interceptedResponse, arrayOf(method, url, status, length))
+
+            } catch (jsonException: SerializationException) {}
         }
 
         return ProxyResponseReceivedAction.continueWith(interceptedResponse)
