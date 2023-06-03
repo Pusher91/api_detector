@@ -2,10 +2,14 @@ package com.pusher.apiDetector
 
 import burp.api.montoya.MontoyaApi
 import burp.api.montoya.proxy.http.InterceptedResponse
+import burp.api.montoya.ui.editor.Editor
+import burp.api.montoya.ui.editor.EditorOptions
+import burp.api.montoya.ui.editor.HttpRequestEditor
+import burp.api.montoya.ui.editor.HttpResponseEditor
 import javax.swing.*
 import javax.swing.table.DefaultTableModel
-import java.awt.*
 import javax.swing.table.TableRowSorter
+import java.awt.*
 
 class ApiDetectorTab(private val api: MontoyaApi) : JPanel() {
     // Create the table model and list of intercepted responses as instance variables
@@ -28,23 +32,31 @@ class ApiDetectorTab(private val api: MontoyaApi) : JPanel() {
         val sorter = TableRowSorter<DefaultTableModel>(tableModel)
         table.rowSorter = sorter
 
-        // Panel on the right for detail view, split into request and response text areas
+        // Panel on the right for detail view, split into request and response editors
         val detailPane = JSplitPane(JSplitPane.HORIZONTAL_SPLIT)
-        val requestTextArea = JTextArea()
-        val responseTextArea = JTextArea()
-        detailPane.leftComponent = JScrollPane(requestTextArea)
-        detailPane.rightComponent = JScrollPane(responseTextArea)
+
+        // Create instances of HttpRequestEditor and HttpResponseEditor
+        val requestEditor = api.userInterface().createHttpRequestEditor(EditorOptions.READ_ONLY)
+        val responseEditor = api.userInterface().createHttpResponseEditor(EditorOptions.READ_ONLY)
+
+
+        // Add the editor components to the detail pane
+        detailPane.leftComponent = JScrollPane(requestEditor.uiComponent())
+        detailPane.rightComponent = JScrollPane(responseEditor.uiComponent())
         splitPane.rightComponent = detailPane
 
         add(splitPane, BorderLayout.CENTER)
 
-        // Add action listener to update text areas when row is selected
+        // Add action listener to update the editors when a row is selected
         table.selectionModel.addListSelectionListener {
             val selectedRow = table.selectedRow
             if (selectedRow >= 0 && selectedRow < interceptedResponses.size) {
                 val interceptedResponse = interceptedResponses[table.convertRowIndexToModel(selectedRow)]
-                requestTextArea.text = interceptedResponse.initiatingRequest().toString()
-                responseTextArea.text = interceptedResponse.toString()
+
+                // Assuming interceptedResponse.initiatingRequest().raw() and interceptedResponse.raw()
+                // return byte arrays of the raw HTTP request and response
+                requestEditor.request = interceptedResponse.initiatingRequest()
+                responseEditor.response = interceptedResponse
             }
         }
     }
